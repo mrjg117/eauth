@@ -104,30 +104,69 @@ function validTarget(env, service, rd) {
  * ALLOWLIST_URL 指向一个公开可读的纯文本/CSV，每行： provider:hash,状态,备注
  * 也可直接用 ALLOWED_USERS 逗号列表兜底。二者取并集。
  * 表格服务的 token 放 ALLOWLIST_TOKEN（可选，Bearer）。
+ *
+ * 腾讯文档/飞书/金山的「分享链接」返回 HTML，不能直接 fetch 当 CSV 用。
+ * 可靠做法：把这些表格导出 CSV -> 传到 GitHub raw / jsDelivr / 自有静态路径，
+ * 再把该纯文本直链填进 ALLOWLIST_URL。改名单 = 更新 CSV 文件。
+ *
+ * 缓存用 ESA 原生 Cache API（cf.cacheTtl 是 Cloudflare 专用，ESA 会忽略）。
+ * 注意 ESA Cache key 必须用 http:// URL，不能用 https。
  */
+const ALLOW_CACHE_KEY = 'http://auth.internal/allowlist.csv'
+const ALLOW_TTL = 60
+
+async function parseAllowlist(text, set) {
+  for (const line of text.split(/\r?\n/)) {
+    const cols = line.split(',').map((x) => x.trim())
+    if (!cols[0]?.includes(':')) continue
+    const status = (cols[1] || 'active').toLowerCase()
+    if (['active', '1', 'yes', 'true', '允许', ''].includes(status)) set.add(cols[0])
+  }
+}
+
 async function loadAllowlist(env) {
   const set = new Set()
   for (const item of (env.ALLOWED_USERS || '').split(',')) {
     const k = item.trim()
     if (k.includes(':')) set.add(k)
   }
-  if (env.ALLOWLIST_URL) {
+  if (!env.ALLOWLIST_URL) return set
+
+  let text = null
+
+  // 1) 先查 ESA 边缘缓存。cache.get 与 fetch 共享子请求额度（默认 32 次），这里只用 3 次。
+  try {
+    const hit = await cache.get(ALLOW_CACHE_KEY)
+    if (hit) text = await hit.text()
+  } catch (e) {
+    // LRU 淘汰或并发控制时可能 reject/pending，忽略后回源
+  }
+
+  // 2) 未命中才真实回源
+  if (text == null) {
     try {
       const headers = env.ALLOWLIST_TOKEN ? { authorization: `Bearer ${env.ALLOWLIST_TOKEN}` } : {}
-      const res = await fetch(env.ALLOWLIST_URL, { headers, cf: { cacheTtl: 60 } })
-      if (res.ok) {
-        const text = await res.text()
-        for (const line of text.split(/\r?\n/)) {
-          const cols = line.split(',').map((x) => x.trim())
-          if (!cols[0]?.includes(':')) continue
-          const status = (cols[1] || 'active').toLowerCase()
-          if (['active', '1', 'yes', 'true', '允许', ''].includes(status)) set.add(cols[0])
-        }
+      const res = await fetch(env.ALLOWLIST_URL, { headers })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      text = await res.text()
+      try {
+        await cache.put(ALLOW_CACHE_KEY, new Response(text, {
+          headers: [['cache-control', `max-age=${ALLOW_TTL}`]]
+        }))
+      } catch (e) {
+        // 缓存写入失败不影响本次鉴权
       }
     } catch (e) {
-      // 在线表格拉取失败时降级为 env 名单，避免把自己锁在门外
+      // 拉取失败降级为 env 名单，避免把自己锁在门外
       console.warn('allowlist fetch failed:', e.message)
+      return set
     }
+  }
+
+  try {
+    await parseAllowlist(text, set)
+  } catch (e) {
+    console.warn('allowlist parse failed:', e.message)
   }
   return set
 }
