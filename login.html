@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>扫码登录 · 统一鉴权入口</title>
+<style>
+  :root{
+    --bg:#0f1115;--bg2:#151920;--card:#1a1e26;--line:#2a2f3a;--line2:#383e4b;
+    --fg:#eef0f4;--mut:#9299a8;--acc:#5DCAA5;--acc-dim:#1D9E75;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;min-height:100vh;color:var(--fg);
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:
+      radial-gradient(900px 460px at 12% -8%,rgba(29,158,117,.16),transparent 60%),
+      radial-gradient(760px 420px at 96% 108%,rgba(56,138,221,.12),transparent 60%),
+      var(--bg);
+    display:grid;place-items:center;padding:32px 20px;
+  }
+  .card{
+    width:min(100%,560px);background:linear-gradient(180deg,var(--card),var(--bg2));
+    border:1px solid var(--line);border-radius:18px;padding:34px 34px 28px;
+    box-shadow:0 24px 60px rgba(0,0,0,.35);
+  }
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:26px}
+  .logo{width:30px;height:30px;border-radius:9px;background:var(--acc-dim);display:grid;place-items:center;color:#06251d;font-weight:600}
+  .brand small{color:var(--mut);font-size:12px}
+  h1{font-size:20px;font-weight:500;margin:0 0 4px;letter-spacing:.2px}
+  .sub{color:var(--mut);margin:0 0 26px;font-size:13px}
+  .section{font-size:12px;color:var(--mut);margin:0 0 10px;letter-spacing:.4px}
+  .tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(94px,1fr));gap:9px;margin-bottom:22px}
+  .tab{
+    display:flex;flex-direction:column;align-items:center;gap:8px;padding:13px 6px;
+    border:1px solid var(--line);border-radius:12px;background:#1d222b;color:var(--fg);
+    cursor:pointer;transition:.16s;text-decoration:none;font-size:12px;user-select:none;
+  }
+  .tab:hover{border-color:var(--line2);transform:translateY(-1px)}
+  .tab.on{border-color:var(--acc);background:rgba(93,202,165,.08);color:var(--acc)}
+  .ico{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:600}
+  .panel{
+    display:grid;grid-template-columns:150px 1fr;gap:24px;align-items:center;
+    border:1px solid var(--line);border-radius:14px;background:#161a21;padding:22px;
+  }
+  .qr{
+    width:150px;height:150px;border-radius:10px;background:#fff;display:grid;place-items:center;
+    padding:10px;position:relative;overflow:hidden;
+  }
+  .qr canvas{width:100%;height:100%;image-rendering:pixelated}
+  .qr .ph{color:#333;font-size:12px;text-align:center}
+  .info h2{font-size:15px;font-weight:500;margin:0 0 8px}
+  .info p{color:var(--mut);font-size:12.5px;margin:0 0 16px}
+  .btn{
+    display:inline-block;padding:10px 18px;border-radius:10px;border:1px solid var(--acc);
+    color:var(--acc);text-decoration:none;font-size:13px;transition:.16s;
+  }
+  .btn:hover{background:rgba(93,202,165,.1)}
+  .status{display:flex;align-items:center;gap:8px;margin-top:20px;font-size:12.5px;color:var(--mut)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 4px rgba(93,202,165,.12)}
+  .foot{margin-top:18px;padding-top:16px;border-top:1px solid var(--line);color:var(--mut);font-size:11.5px;line-height:1.7}
+  code{color:var(--acc);background:rgba(93,202,165,.08);padding:1px 5px;border-radius:4px;word-break:break-all}
+  @media(max-width:520px){
+    .card{padding:24px 18px}.panel{grid-template-columns:1fr;justify-items:center;text-align:center}
+    .qr{width:180px;height:180px}
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand">
+    <div class="logo">A</div>
+    <div>Auth Edge<br><small>统一扫码鉴权入口 · auth.example.com</small></div>
+  </div>
+
+  <h1>选择一个平台登录</h1>
+  <p class="sub">鉴权由边缘函数处理，业务站点无需接入任何 SDK</p>
+
+  <div class="section">可用平台</div>
+  <div class="tabs" id="tabs">
+    <div class="tab on" data-k="wxmp" data-n="微信小程序码" data-c="#1D9E75" data-g="微">
+      <span class="ico" style="background:#1D9E75">微</span><span>微信</span>
+    </div>
+    <div class="tab" data-k="ali" data-n="支付宝" data-c="#1677FF" data-g="支">
+      <span class="ico" style="background:#1677FF">支</span><span>支付宝</span>
+    </div>
+    <div class="tab" data-k="qq" data-n="QQ" data-c="#378ADD" data-g="Q">
+      <span class="ico" style="background:#378ADD">Q</span><span>QQ</span>
+    </div>
+    <div class="tab" data-k="gitee" data-n="Gitee" data-c="#D85A30" data-g="G">
+      <span class="ico" style="background:#D85A30">G</span><span>Gitee</span>
+    </div>
+    <div class="tab" data-k="github" data-n="GitHub" data-c="#5F5E5A" data-g="GH">
+      <span class="ico" style="background:#5F5E5A">GH</span><span>GitHub</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="qr" id="qr"><canvas id="cv" width="120" height="120"></canvas></div>
+    <div class="info">
+      <h2 id="name">微信小程序码</h2>
+      <p id="desc">用微信扫码，小程序内 wx.login 后回传身份。个人主体免费，无需企业认证。</p>
+      <a class="btn" href="/authorize?service=a&amp;provider=wxmp" id="btn">前往授权 ›</a>
+    </div>
+  </div>
+
+  <div class="status"><span class="dot"></span><span id="st">state 已由函数签名，5 分钟内有效 · 默认拒绝未在白名单的账号</span></div>
+
+  <div class="foot">
+    白名单从在线表格实时读取（60 秒缓存），env 名单兜底。<br>
+    各平台只返回稳定 ID（<code>openid</code> / <code>user_id</code> / <code>sub</code>），经 HMAC 派生后与表格比对决定是否放行。<br>
+    演示说明：二维码为示意；实际页面由 ESA 函数服务端渲染并注入 state。
+  </div>
+</div>
+
+<script>
+(function(){
+  var tabs=document.querySelectorAll('.tab'),name=document.getElementById('name'),
+      desc=document.getElementById('desc'),btn=document.getElementById('btn'),
+      st=document.getElementById('st'),cv=document.getElementById('cv'),
+      ctx=cv.getContext('2d');
+  var notes={
+    wxmp:'用微信扫码，小程序内 wx.login 后回传身份。个人主体免费，无需企业认证。',
+    ali:'跳转支付宝授权页展示二维码，回调由函数统一处理。个人账号可申请，免费。',
+    qq:'跳转 QQ 授权页，个人认证免费，需备案域名。',
+    gitee:'个人账号即建即生效，回调返回稳定数字 id。',
+    github:'个人免费、无需审核，回调返回稳定数字 id。'
+  };
+  function drawQR(seed,color){
+    var n=21,cell=cv.width/n,s=seed;
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,cv.width,cv.height);
+    function rnd(){s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff}
+    for(var y=0;y<n;y++)for(var x=0;x<n;x++){
+      var finder=(x<7&&y<7)||(x>=n-7&&y<7)||(x<7&&y>=n-7);
+      if(finder)continue;
+      if(rnd()>.48){ctx.fillStyle=color;ctx.fillRect(x*cell,y*cell,cell,cell)}
+    }
+    function f(ox,oy){
+      ctx.fillStyle=color;ctx.fillRect(ox*cell,oy*cell,7*cell,7*cell);
+      ctx.fillStyle='#fff';ctx.fillRect((ox+1)*cell,(oy+1)*cell,5*cell,5*cell);
+      ctx.fillStyle=color;ctx.fillRect((ox+2)*cell,(oy+2)*cell,3*cell,3*cell);
+    }
+    f(0,0);f(n-7,0);f(0,n-7);
+  }
+  drawQR(20261124,'#1a1a1a');
+  tabs.forEach(function(t){
+    t.addEventListener('click',function(){
+      tabs.forEach(function(x){x.classList.remove('on')});t.classList.add('on');
+      var k=t.dataset.k;
+      name.textContent=t.dataset.n;desc.textContent=notes[k];
+      btn.href='/authorize?service=a&provider='+k;
+      st.textContent='当前平台：'+t.dataset.n+' · state 由函数签名，5 分钟有效';
+      drawQR(k.split('').reduce(function(a,c){return a+c.charCodeAt(0)},7)*97,'#1a1a1a');
+    });
+  });
+})();
+</script>
+</body>
+</html>

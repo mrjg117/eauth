@@ -1,0 +1,6 @@
+<view class="wrap">
+  <view class="title">统一鉴权</view>
+  <view class="status">{{status}}</view>
+  <view class="token" wx:if="{{token}}">{{token}}</view>
+  <button wx:if="{{token}}" bindtap="copyToken">复制登录凭据</button>
+</view>
